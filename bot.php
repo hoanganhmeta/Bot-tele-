@@ -58,7 +58,7 @@ if (isset($json['message']['text'])) {
                             $dataFromApi = json_decode($response, true);
                             if (isset($dataFromApi['id'])) {
                                 $userId = $dataFromApi['id'];
-                                $apiUrl = 'https://scaninfo.vn/api/apiCheck.php?id=' . urlencode($userId); // đường link dẫn tới file apiCheck.php, thay đoạn này phù hợp với đường dẫn tới file apiCheck.php của bạn
+                                $apiUrl = 'https://hoanganh.vn/api/apiCheck.php?id=' . urlencode($userId); // đường link dẫn tới file apiCheck.php, thay đoạn này phù hợp với đường dẫn tới file apiCheck.php của bạn
                                 $response = file_get_contents($apiUrl);
                                 $dataFromApi = json_decode($response, true);
                                 if (isset($dataFromApi['status']) && $dataFromApi['status'] === 'error') {
@@ -91,12 +91,12 @@ if (isset($json['message']['text'])) {
                     sendMessage($chatId, "⚠️ Vui lòng nhập một ID, Facebook link, hoặc username sau info.", $messageId);
                 }
             } else {
-                sendMessage($chatId, "❌ Bạn không có quyền sử dụng lệnh này. Vui lòng truy cập nhóm @tienich để sử dụng lệnh info.", $messageId);
+                sendMessage($chatId, "❌ Bạn không có quyền sử dụng lệnh này. Vui lòng truy cập nhóm @ để sử dụng lệnh info.", $messageId);
             }
             exit;
         }
     } else {
-        sendMessage($chatId, "❌ Bạn không có quyền sử dụng BOT này. Vui lòng inbox cho @duyvinh09 để được hỗ trợ.", $messageId);
+        sendMessage($chatId, "❌ Bạn không có quyền sử dụng BOT này. Vui lòng inbox cho @ để được hỗ trợ.", $messageId);
     }
 }
 

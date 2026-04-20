@@ -27,9 +27,9 @@ if (empty($userId)) {
             "type" => "?id={id}"
         ),
         "Admin" => array(
-            "Author" => "Đinh Duy Vinh",
-            "Facebook" => "https://www.facebook.com/duyvinh09",
-            "Zalo" => "https://zalo.me/duyvinh09"
+            "Author" => "",
+            "Facebook" => "https://www.facebook.com/",
+            "Zalo" => "https://zalo.me/"
         )
     );
 
@@ -97,9 +97,9 @@ $responseArray = array(
     "status" => ($success ? "success" : "error"),
     "result" => ($success ? $decodedResponse : "ID không tồn tại hoặc đã bị gỡ trên Facebook"),
     "Admin" => array(
-        "Author" => "Đinh Duy Vinh",
-        "Facebook" => "https://www.facebook.com/duyvinh09",
-        "Zalo" => "https://zalo.me/duyvinh09"
+        "Author" => "",
+        "Facebook" => "https://www.facebook.com/",
+        "Zalo" => "https://zalo.me/"
     )
 );
 

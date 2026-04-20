@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 }
 function getID($urlFb) {
     if (strpos($urlFb, 'https://www.facebook.com/profile.php?=') !== false) {
-        $urlFb = 'https://www.facebook.com/duyvinh09';
+        $urlFb = 'https://www.facebook.com/';
     }
     $apiUrl = "https://ffb.vn/api/tool/get-id-fb?idfb=" . urlencode($urlFb);
     $apiResponse = file_get_contents($apiUrl);

@@ -1,12 +1,12 @@
 <?php
-// BẢN QUYỀN THUỘC BỞI ĐINH DUY VINH | ZALO: zalo.me/duyvinh09 | FB: fb.com/duyvinh09 | KHÔNG SỬ DỤNG MÃ NGUỒN CỦA BÊN KHÁC CUNG CẤP! CHÚNG TÔI SẼ KHÔNG BẢO HÀNH LỖI MÀ BẠN GẶP.
-define('BOT_TOKEN', '6829186156:AAE0W0M3joIs-MQoQfaxrl_hLt6VxH8PRLo'); // token bot để chạy
+// BẢN QUYỀN THUỘC BỞI  | ZALO: zalo.me/ | FB: fb.com/ | KHÔNG SỬ DỤNG MÃ NGUỒN CỦA BÊN KHÁC CUNG CẤP! CHÚNG TÔI SẼ KHÔNG BẢO HÀNH LỖI MÀ BẠN GẶP.
+define('BOT_TOKEN', '8457659379:AAHP3K3owb_yl6hQTk7y9cQBJgH2gv9u_U8'); // token bot để chạy
 
 $data = file_get_contents('php://input');
 $json = json_decode($data, true);
 
-$allowedGroupIds = ['-1002006685178']; // List ID group chat ['ID nhóm 1', 'ID nhóm 2']
-$adminChatIds = ['5316151847']; // List ID admin (cách lấy id thì vào @MissRose_bot sài lệnh /id @duyvinh09)
+$allowedGroupIds = ['-']; // List ID group chat ['ID nhóm 1', 'ID nhóm 2']
+$adminChatIds = ['7211752234']; // List ID admin (cách lấy id thì vào @MissRose_bot sài lệnh /id @duyvinh09)
 
 if (isset($json['message']['text'])) {
     $message = $json['message']['text'];

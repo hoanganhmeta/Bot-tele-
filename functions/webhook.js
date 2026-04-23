@@ -1,9 +1,19 @@
 const axios = require("axios");
 const moment = require("moment-timezone");
 
-// Thay thế bằng token bot Telegram của bạn (lấy từ @BotFather)
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+// Token bot Telegram của bạn (lấy từ @BotFather)
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const WEATHER_API_KEY = "deae5206758c44f38b0184151232208";
+
+// Hàm chuyển tiếng Việt có dấu sang không dấu
+function removeVietnameseTones(str) {
+    return str
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D')
+        .replace(/[^\w\s]/gi, '');
+}
 
 // Đối tượng ánh xạ các trạng thái thời tiết từ tiếng Anh sang tiếng Việt
 const weatherTranslations = {
@@ -68,7 +78,7 @@ async function sendChatAction(chatId, action = "typing") {
 }
 
 // Hàm lấy thông tin thời tiết
-async function getWeatherInfo(city) {
+async function getWeatherInfo(city, displayName = null) {
     const apiUrl = `http://api.weatherapi.com/v1/current.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(city)}`;
     
     try {
@@ -83,6 +93,10 @@ async function getWeatherInfo(city) {
         const locationInfo = data.location;
         const currentDateTime = moment().tz(locationInfo.tz_id).format("HH:mm:ss - DD/MM/YYYY");
         let condition = weatherInfo.condition.text;
+
+        // Dùng tên hiển thị nếu có, không thì dùng tên từ API
+        const displayLocation = displayName || locationInfo.name;
+        const displayCountry = locationInfo.country;
 
         // Dịch trạng thái thời tiết
         let translatedCondition = weatherTranslations[condition];
@@ -103,9 +117,9 @@ async function getWeatherInfo(city) {
             }
         }
 
-        // Format tin nhắn đẹp hơn
+        // Format tin nhắn
         const weatherMessage = `
-<b>🌍 Thời tiết tại ${locationInfo.name}, ${locationInfo.country}</b>
+<b>🌍 Thời tiết tại ${displayLocation}, ${displayCountry}</b>
 <i>📅 Cập nhật: ${currentDateTime}</i>
 
 🌡 <b>Nhiệt độ:</b> ${weatherInfo.temp_c}°C (${weatherInfo.temp_f}°F)
@@ -128,8 +142,7 @@ async function getWeatherInfo(city) {
 
 // Hàm xử lý lệnh /thoitiet
 async function handleWeatherCommand(chatId, text, messageId) {
-    // Lấy tên thành phố từ lệnh (bỏ "/thoitiet")
-    const city = text.replace(/^\/thoitiet\s*/, "").trim();
+    let city = text.replace(/^\/thoitiet\s*/, "").trim();
     
     if (!city) {
         await sendTelegramMessage(
@@ -139,16 +152,23 @@ async function handleWeatherCommand(chatId, text, messageId) {
         return;
     }
 
+    // Lưu tên gốc để hiển thị
+    const originalCity = city;
+    
+    // Chuyển sang không dấu để gọi API
+    const cityNoTone = removeVietnameseTones(city);
+    
     // Gửi typing indicator
     await sendChatAction(chatId, "typing");
 
     try {
-        const weatherMessage = await getWeatherInfo(city);
+        // Dùng tên không dấu để gọi API, nhưng hiển thị tên gốc
+        const weatherMessage = await getWeatherInfo(cityNoTone, originalCity);
         await sendTelegramMessage(chatId, weatherMessage);
     } catch (error) {
         await sendTelegramMessage(
             chatId,
-            `❌ <b>Không tìm thấy thông tin thời tiết cho "${city}"</b>\n\nVui lòng kiểm tra lại tên thành phố và thử lại.`
+            `❌ <b>Không tìm thấy thông tin thời tiết cho "${originalCity}"</b>\n\nVui lòng kiểm tra lại tên thành phố và thử lại.\n\n💡 <i>Mẹo: Thử không dấu nếu có lỗi, ví dụ: thanh hoa, ha noi</i>`
         );
     }
 }
@@ -163,6 +183,7 @@ async function handleStartCommand(chatId, firstName) {
 📝 <b>Cách sử dụng:</b>
 • Gửi lệnh <code>/thoitiet [tên thành phố]</code>
 • Ví dụ: <code>/thoitiet thanh hoa</code>
+• Ví dụ: <code>/thoitiet thanh hoá</code>
 • Ví dụ: <code>/thoitiet ha noi</code>
 • Ví dụ: <code>/thoitiet ho chi minh</code>
 
@@ -185,10 +206,13 @@ async function handleHelpCommand(chatId) {
 <b>🌡️ Lệnh xem thời tiết:</b>
 <code>/thoitiet [tên thành phố]</code>
 - Xem thông tin thời tiết hiện tại của thành phố
+- Hỗ trợ cả có dấu và không dấu
 
 <b>📌 Ví dụ cụ thể:</b>
-• <code>/thoitiet ha noi</code>
-• <code>/thoitiet thanh hoa</code>
+
+• <code>/thoitiet hà nội</code>
+
+• <code>/thoitiet thanh hoá</code>
 • <code>/thoitiet da nang</code>
 • <code>/thoitiet london</code>
 • <code>/thoitiet tokyo</code>
@@ -206,34 +230,14 @@ async function handleHelpCommand(chatId) {
 <b>⚡ Các lệnh khác:</b>
 /start - Khởi động bot
 /help - Xem hướng dẫn này
-/about - Thông tin về bot
+
 
 <i>💡 Mẹo: Bạn có thể tìm thời tiết cho bất kỳ thành phố nào trên thế giới!</i>`;
     
     await sendTelegramMessage(chatId, helpMessage);
 }
 
-// Hàm xử lý lệnh /about
-async function handleAboutCommand(chatId) {
-    const aboutMessage = `
-<b>ℹ️ Về Weather Bot</b>
 
-🤖 <b>Weather Bot v2.0</b>
-Một bot Telegram đơn giản giúp bạn tra cứu thông tin thời tiết nhanh chóng và chính xác.
-
-<b>🔧 Công nghệ sử dụng:</b>
-• Node.js
-• WeatherAPI.com
-• Moment Timezone
-• Axios
-
-<b>👨‍💻 Phát triển bởi:</b> Q.Huy
-
-<b>📅 Phiên bản:</b> 2.0 (Telegram)
-
-<b>🌐 Chạy trên:</b> Netlify Functions
-
-<i>Cảm ơn bạn đã sử dụng bot! 🙏</i>`;
     
     await sendTelegramMessage(chatId, aboutMessage);
 }
@@ -283,7 +287,7 @@ exports.handler = async (event, context) => {
     } catch (error) {
         console.error("Lỗi xử lý webhook:", error);
         return {
-            statusCode: 200, // Vẫn trả về 200 để Telegram không gửi lại
+            statusCode: 200,
             body: JSON.stringify({ status: "error", message: error.message })
         };
     }

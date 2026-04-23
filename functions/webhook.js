@@ -1,7 +1,8 @@
 const axios = require("axios");
 const moment = require("moment-timezone");
+const youtubeHandler = require("./youtube");
 
-// Token bot Telegram của bạn (lấy từ @BotFather)
+// Token bot Telegram
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const WEATHER_API_KEY = "deae5206758c44f38b0184151232208";
 
@@ -15,7 +16,7 @@ function removeVietnameseTones(str) {
         .replace(/[^\w\s]/gi, '');
 }
 
-// Đối tượng ánh xạ các trạng thái thời tiết từ tiếng Anh sang tiếng Việt
+// Đối tượng ánh xạ thời tiết
 const weatherTranslations = {
     "Sunny": "Trời Nắng ☀️",
     "Mostly sunny": "Nhiều Nắng ☀️",
@@ -50,25 +51,23 @@ const weatherTranslations = {
     "Thundery outbreaks possible": "Có Khả Năng Có Bão ⛈️",
 };
 
-// Hàm gửi tin nhắn qua Telegram
+// Hàm gửi tin nhắn
 async function sendTelegramMessage(chatId, text, parseMode = "HTML") {
-    const telegramUrl = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
     try {
-        await axios.post(telegramUrl, {
+        await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
             chat_id: chatId,
             text: text,
             parse_mode: parseMode
         });
     } catch (error) {
-        console.error("Lỗi gửi tin nhắn Telegram:", error.response?.data || error.message);
+        console.error("Lỗi gửi tin nhắn:", error.response?.data || error.message);
     }
 }
 
 // Hàm gửi typing indicator
 async function sendChatAction(chatId, action = "typing") {
-    const telegramUrl = `https://api.telegram.org/bot${BOT_TOKEN}/sendChatAction`;
     try {
-        await axios.post(telegramUrl, {
+        await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendChatAction`, {
             chat_id: chatId,
             action: action
         });
@@ -85,41 +84,28 @@ async function getWeatherInfo(city, displayName = null) {
         const response = await axios.get(apiUrl);
         const data = response.data;
 
-        if (data.error) {
-            throw new Error("Không tìm thấy thành phố");
-        }
+        if (data.error) throw new Error("Không tìm thấy thành phố");
 
         const weatherInfo = data.current;
         const locationInfo = data.location;
         const currentDateTime = moment().tz(locationInfo.tz_id).format("HH:mm:ss - DD/MM/YYYY");
         let condition = weatherInfo.condition.text;
-
-        // Dùng tên hiển thị nếu có, không thì dùng tên từ API
         const displayLocation = displayName || locationInfo.name;
-        const displayCountry = locationInfo.country;
 
-        // Dịch trạng thái thời tiết
         let translatedCondition = weatherTranslations[condition];
-        
         if (!translatedCondition) {
             try {
-                const translateUrl = "https://api.mymemory.translated.net/get";
-                const translateResponse = await axios.get(translateUrl, {
-                    params: {
-                        q: condition,
-                        langpair: "en|vi",
-                    },
+                const translateRes = await axios.get("https://api.mymemory.translated.net/get", {
+                    params: { q: condition, langpair: "en|vi" }
                 });
-                translatedCondition = translateResponse.data.responseData.translatedText;
-            } catch (translateError) {
-                console.error(`Lỗi khi dịch trạng thái thời tiết: ${translateError}`);
+                translatedCondition = translateRes.data.responseData.translatedText;
+            } catch {
                 translatedCondition = condition;
             }
         }
 
-        // Format tin nhắn
-        const weatherMessage = `
-<b>🌍 Thời tiết tại ${displayLocation}, ${displayCountry}</b>
+        return `
+<b>🌍 Thời tiết tại ${displayLocation}, ${locationInfo.country}</b>
 <i>📅 Cập nhật: ${currentDateTime}</i>
 
 🌡 <b>Nhiệt độ:</b> ${weatherInfo.temp_c}°C (${weatherInfo.temp_f}°F)
@@ -132,163 +118,117 @@ async function getWeatherInfo(city, displayName = null) {
 🌧️ <b>Lượng mưa:</b> ${weatherInfo.precip_mm} mm
 🌬️ <b>Gió giật:</b> ${weatherInfo.gust_kph} km/h
 🧬 <b>Chỉ số UV:</b> ${weatherInfo.uv}`;
-
-        return weatherMessage;
     } catch (error) {
-        console.error("Lỗi lấy dữ liệu thời tiết:", error.message);
         throw error;
     }
 }
 
-// Hàm xử lý lệnh /thoitiet
-async function handleWeatherCommand(chatId, text, messageId) {
+// Xử lý lệnh /thoitiet
+async function handleWeatherCommand(chatId, text) {
     let city = text.replace(/^\/thoitiet\s*/, "").trim();
     
     if (!city) {
-        await sendTelegramMessage(
-            chatId,
-            "⚠️ <b>Vui lòng nhập tên thành phố!</b>\n\nVí dụ: <code>/thoitiet thanh hoa</code>"
-        );
-        return;
+        return sendTelegramMessage(chatId, "⚠️ <b>Vui lòng nhập tên thành phố!</b>\n\nVí dụ: <code>/thoitiet thanh hoa</code>");
     }
 
-    // Lưu tên gốc để hiển thị
     const originalCity = city;
-    
-    // Chuyển sang không dấu để gọi API
     const cityNoTone = removeVietnameseTones(city);
     
-    // Gửi typing indicator
     await sendChatAction(chatId, "typing");
 
     try {
-        // Dùng tên không dấu để gọi API, nhưng hiển thị tên gốc
         const weatherMessage = await getWeatherInfo(cityNoTone, originalCity);
         await sendTelegramMessage(chatId, weatherMessage);
     } catch (error) {
-        await sendTelegramMessage(
-            chatId,
-            `❌ <b>Không tìm thấy thông tin thời tiết cho "${originalCity}"</b>\n\nVui lòng kiểm tra lại tên thành phố và thử lại.\n\n💡 <i>Mẹo: Thử không dấu nếu có lỗi, ví dụ: thanh hoa, ha noi</i>`
-        );
+        await sendTelegramMessage(chatId, `❌ <b>Không tìm thấy thông tin thời tiết cho "${originalCity}"</b>\n\nVui lòng thử lại.`);
     }
 }
 
-// Hàm xử lý lệnh /start
+// Xử lý lệnh /start
 async function handleStartCommand(chatId, firstName) {
-    const welcomeMessage = `
-<b>👋 Chào mừng ${firstName || "bạn"} đến với Weather Bot!</b>
+    const msg = `
+<b>👋 Chào mừng ${firstName || "bạn"}!</b>
 
-🤖 Tôi có thể cung cấp thông tin thời tiết cho bất kỳ thành phố nào.
+🤖 Tôi có thể:
+🌡️ <b>Xem thời tiết:</b> <code>/thoitiet thanh hoa</code>
+🎵 <b>Tìm nhạc YouTube:</b> <code>/sing em cua ngay hom qua</code>
 
-📝 <b>Cách sử dụng:</b>
-• Gửi lệnh <code>/thoitiet [tên thành phố]</code>
-• Ví dụ: <code>/thoitiet thanh hoa</code>
-• Ví dụ: <code>/thoitiet thanh hoá</code>
-• Ví dụ: <code>/thoitiet ha noi</code>
-• Ví dụ: <code>/thoitiet ho chi minh</code>
-
-🌍 Bot hỗ trợ tìm kiếm thời tiết cho các thành phố trên toàn thế giới!
-
-<b>✨ Các lệnh khác:</b>
-/help - Xem hướng dẫn sử dụng
-/about - Thông tin về bot
-
-Chúc bạn một ngày tốt lành! 🌤️`;
-    
-    await sendTelegramMessage(chatId, welcomeMessage);
+/help - Xem hướng dẫn chi tiết`;
+    await sendTelegramMessage(chatId, msg);
 }
 
-// Hàm xử lý lệnh /help
+// Xử lý lệnh /help
 async function handleHelpCommand(chatId) {
-    const helpMessage = `
-<b>📖 Hướng dẫn sử dụng Weather Bot</b>
+    const msg = `
+<b>📖 Hướng dẫn sử dụng</b>
 
-<b>🌡️ Lệnh xem thời tiết:</b>
+<b>🌡️ Xem thời tiết:</b>
 <code>/thoitiet [tên thành phố]</code>
-- Xem thông tin thời tiết hiện tại của thành phố
-- Hỗ trợ cả có dấu và không dấu
+VD: <code>/thoitiet thanh hoá</code>
 
-<b>📌 Ví dụ cụ thể:</b>
+<b>🎵 Tìm nhạc YouTube:</b>
+<code>/sing [tên bài hát]</code>
+VD: <code>/sing em cua ngay hom qua</code>
 
-• <code>/thoitiet hà nội</code>
-
-• <code>/thoitiet thanh hoá</code>
-• <code>/thoitiet da nang</code>
-• <code>/thoitiet london</code>
-• <code>/thoitiet tokyo</code>
-
-<b>📊 Thông tin hiển thị:</b>
-• Nhiệt độ hiện tại và cảm giác
-• Tình trạng thời tiết
-• Tốc độ và hướng gió
-• Áp suất không khí
-• Độ ẩm
-• Lượng mây che phủ
-• Lượng mưa
-• Chỉ số UV
-
-<b>⚡ Các lệnh khác:</b>
+<b>⚡ Lệnh khác:</b>
 /start - Khởi động bot
-/help - Xem hướng dẫn này
-
-
-<i>💡 Mẹo: Bạn có thể tìm thời tiết cho bất kỳ thành phố nào trên thế giới!</i>`;
-    
-    await sendTelegramMessage(chatId, helpMessage);
+/help - Xem hướng dẫn này`;
+    await sendTelegramMessage(chatId, msg);
 }
 
-
-    
-    await sendTelegramMessage(chatId, aboutMessage);
-}
-
-// Main handler function cho Netlify
+// Main handler
 exports.handler = async (event, context) => {
-    // Chỉ xử lý POST request
     if (event.httpMethod !== "POST") {
         return {
             statusCode: 200,
-            body: JSON.stringify({ message: "Weather Bot Webhook is running!" })
+            body: JSON.stringify({ message: "Weather Bot is running!" })
         };
     }
 
     try {
         const body = JSON.parse(event.body);
-        
-        // Xử lý tin nhắn từ Telegram
-        if (body.message) {
-            const message = body.message;
-            const chatId = message.chat.id;
-            const text = message.text || "";
-            const firstName = message.from?.first_name || "";
 
-            // Kiểm tra và xử lý các lệnh
+        // Xử lý callback query (nút bấm YouTube)
+        if (body.callback_query) {
+            const cb = body.callback_query;
+            const chatId = cb.message.chat.id;
+            const data = cb.data;
+
+            await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+                callback_query_id: cb.id
+            });
+
+            if (data.startsWith("select_")) {
+                const index = parseInt(data.replace("select_", ""));
+                await youtubeHandler.handleVideoSelection(chatId, index);
+            }
+
+            return { statusCode: 200, body: JSON.stringify({ status: "ok" }) };
+        }
+
+        // Xử lý tin nhắn
+        if (body.message) {
+            const msg = body.message;
+            const chatId = msg.chat.id;
+            const text = msg.text || "";
+            const firstName = msg.from?.first_name || "";
+
             if (text.startsWith("/thoitiet")) {
-                await handleWeatherCommand(chatId, text, message.message_id);
+                await handleWeatherCommand(chatId, text);
+            } else if (text.startsWith("/sing")) {
+                await youtubeHandler.handleSingCommand(chatId, text);
             } else if (text === "/start") {
                 await handleStartCommand(chatId, firstName);
             } else if (text === "/help") {
                 await handleHelpCommand(chatId);
-            } else if (text === "/about") {
-                await handleAboutCommand(chatId);
             } else if (text.startsWith("/")) {
-                // Lệnh không xác định
-                await sendTelegramMessage(
-                    chatId,
-                    "❌ <b>Lệnh không xác định!</b>\n\nSử dụng /help để xem danh sách lệnh."
-                );
+                await sendTelegramMessage(chatId, "❌ <b>Lệnh không xác định!</b>\n\nDùng /help để xem danh sách lệnh.");
             }
         }
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify({ status: "ok" })
-        };
+        return { statusCode: 200, body: JSON.stringify({ status: "ok" }) };
     } catch (error) {
-        console.error("Lỗi xử lý webhook:", error);
-        return {
-            statusCode: 200,
-            body: JSON.stringify({ status: "error", message: error.message })
-        };
+        console.error("Lỗi webhook:", error);
+        return { statusCode: 200, body: JSON.stringify({ status: "error" }) };
     }
 };

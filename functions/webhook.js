@@ -2,7 +2,7 @@ const axios = require("axios");
 const moment = require("moment-timezone");
 
 // Thay thế bằng token bot Telegram của bạn (lấy từ @BotFather)
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "8457659379:AAGk7aS02tgJukEWdjQjEiZVmlwoPGCo0eU";
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const WEATHER_API_KEY = "deae5206758c44f38b0184151232208";
 
 // Đối tượng ánh xạ các trạng thái thời tiết từ tiếng Anh sang tiếng Việt
